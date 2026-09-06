@@ -12,7 +12,7 @@ const sectionLabels: Record<string, string[]> = {
   results: ["Event", "Result", "Status"],
 };
 
-export default function SectionList({ section, reloadKey, onEdit }: { section: string; reloadKey: number; onEdit: (record: Row) => void }) {
+export default function SectionList({ section, reloadKey, onEdit, onDeleted }: { section: string; reloadKey: number; onEdit: (record: Row) => void; onDeleted: (message: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +37,15 @@ export default function SectionList({ section, reloadKey, onEdit }: { section: s
     void loadRows();
   }, [reloadKey, section]);
 
+  async function deleteRecord(row: Row) {
+    if (!window.confirm(`Delete ${String(row.first)}? This cannot be undone.`)) return;
+    const client = createClient();
+    const { error } = await client.from(section).delete().eq("id", row.id);
+    if (error) { onDeleted(error.message); return; }
+    onDeleted(`${section.slice(0, -1)} deleted successfully.`);
+  }
+
   if (!sectionLabels[section]) return null;
   const labels = sectionLabels[section];
-  return <section className="admin-panel records-panel"><div className="records-heading"><div><p className="eyebrow">Live records</p><h2>{rows.length} {section}</h2></div><span>{loading ? "Loading..." : `${rows.length} records`}</span></div>{loading ? <p className="records-empty">Loading live data...</p> : rows.length === 0 ? <p className="records-empty">No {section} have been added yet.</p> : <div className="records-table"><div className="records-table-head">{labels.map((label) => <span key={label}>{label}</span>)}<span>Action</span></div>{rows.map((row) => <div className="records-table-row" key={String(row.id)}><strong>{row.first}</strong><span>{row.second}</span><span className={row.status === "Active" || row.status === "published" ? "record-status" : ""}>{row.third}{row.status && row.status !== "Active" ? ` · ${row.status}` : ""}</span><button className="record-edit" type="button" onClick={() => onEdit(row)}>Edit</button></div>)}</div>}</section>;
+  return <section className="admin-panel records-panel"><div className="records-heading"><div><p className="eyebrow">Live records</p><h2>{rows.length} {section}</h2></div><span>{loading ? "Loading..." : `${rows.length} records`}</span></div>{loading ? <p className="records-empty">Loading live data...</p> : rows.length === 0 ? <p className="records-empty">No {section} have been added yet.</p> : <div className="records-table"><div className="records-table-head">{labels.map((label) => <span key={label}>{label}</span>)}<span>Action</span></div>{rows.map((row) => <div className="records-table-row" key={String(row.id)}><strong>{row.first}</strong><span>{row.second}</span><span className={row.status === "Active" || row.status === "published" ? "record-status" : ""}>{row.third}{row.status && row.status !== "Active" ? ` · ${row.status}` : ""}</span><span className="record-actions"><button className="record-edit" type="button" onClick={() => onEdit(row)}>Edit</button><button className="record-delete" type="button" onClick={() => void deleteRecord(row)}>Delete</button></span></div>)}</div>}</section>;
 }

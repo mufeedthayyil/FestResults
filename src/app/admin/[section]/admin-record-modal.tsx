@@ -17,6 +17,13 @@ type Props = {
 
 const titles: Record<string, string> = { teams: "team", participants: "participant", events: "event", results: "result" };
 
+function withTimeout<T>(request: PromiseLike<T>, milliseconds = 12000) {
+  return Promise.race([
+    Promise.resolve(request),
+    new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error("The request timed out. Check your Supabase connection and sign-in status.")), milliseconds)),
+  ]);
+}
+
 export default function AdminRecordModal({ section, mode, record, onClose, onSaved }: Props) {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -27,12 +34,16 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
   const [participants, setParticipants] = useState<Option[]>([]);
 
   async function getAdminCheck() {
-    const client = createClient();
-    const { data: sessionData, error: sessionError } = await client.auth.getSession();
-    if (sessionError || !sessionData.session?.user) return "Your session has expired. Sign in again before saving.";
-    const { data: profile, error: profileError } = await client.from("admin_profiles").select("role").eq("user_id", sessionData.session.user.id).maybeSingle();
-    if (profileError || !profile || !["admin", "editor"].includes(profile.role)) return "Your account is authenticated but is not assigned an admin role.";
-    return null;
+    try {
+      const client = createClient();
+      const { data: sessionData, error: sessionError } = await withTimeout(client.auth.getSession());
+      if (sessionError || !sessionData.session?.user) return "Your session has expired. Sign in again before saving.";
+      const { data: profile, error: profileError } = await withTimeout(client.from("admin_profiles").select("role").eq("user_id", sessionData.session.user.id).maybeSingle());
+      if (profileError || !profile || !["admin", "editor"].includes(profile.role)) return "Your account is authenticated but is not assigned an admin role.";
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Unable to verify admin access.";
+    }
   }
 
   useEffect(() => {
@@ -78,15 +89,21 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const client = createClient();
     let response: { error: { message: string } | null };
-    if (section === "teams") {
-      response = mode === "edit" ? await client.from("teams").update({ name: values.name, short_name: values.short_name, description: values.description || null }).eq("id", record?.id) : await client.from("teams").insert({ name: values.name, short_name: values.short_name, description: values.description || null });
-    } else if (section === "participants") {
-      response = mode === "edit" ? await client.from("participants").update({ register_number: values.register_number, full_name: values.full_name, team_id: values.team_id, class_name: values.class_name || null, department: values.department || null }).eq("id", record?.id) : await client.from("participants").insert({ register_number: values.register_number, full_name: values.full_name, team_id: values.team_id, class_name: values.class_name || null, department: values.department || null });
-    } else if (section === "events") {
-      response = mode === "edit" ? await client.from("events").update({ event_name: values.event_name, event_code: values.event_code, category: values.category, event_type: values.event_type, max_participants: values.max_participants ? Number(values.max_participants) : null, points_for_first: Number(values.points_for_first), points_for_second: Number(values.points_for_second), points_for_third: Number(values.points_for_third) }).eq("id", record?.id) : await client.from("events").insert({ event_name: values.event_name, event_code: values.event_code, category: values.category, event_type: values.event_type, max_participants: values.max_participants ? Number(values.max_participants) : null, points_for_first: Number(values.points_for_first), points_for_second: Number(values.points_for_second), points_for_third: Number(values.points_for_third) });
-    } else {
-      if ((values.participant_id && values.team_id) || (!values.participant_id && !values.team_id)) { setSaving(false); setMessage("Choose either a participant or a team."); return; }
-      response = mode === "edit" ? await client.from("results").update({ event_id: values.event_id, participant_id: values.participant_id || null, team_id: values.team_id || null, position: Number(values.position), points: Number(values.points), grade: values.grade || null, remarks: values.remarks || null, status: values.status }).eq("id", record?.id) : await client.from("results").insert({ event_id: values.event_id, participant_id: values.participant_id || null, team_id: values.team_id || null, position: Number(values.position), points: Number(values.points), grade: values.grade || null, remarks: values.remarks || null, status: values.status });
+    try {
+      if (section === "teams") {
+        response = mode === "edit" ? await withTimeout(client.from("teams").update({ name: values.name, short_name: values.short_name, description: values.description || null }).eq("id", record?.id)) : await withTimeout(client.from("teams").insert({ name: values.name, short_name: values.short_name, description: values.description || null }));
+      } else if (section === "participants") {
+        response = mode === "edit" ? await withTimeout(client.from("participants").update({ register_number: values.register_number, full_name: values.full_name, team_id: values.team_id, class_name: values.class_name || null, department: values.department || null }).eq("id", record?.id)) : await withTimeout(client.from("participants").insert({ register_number: values.register_number, full_name: values.full_name, team_id: values.team_id, class_name: values.class_name || null, department: values.department || null }));
+      } else if (section === "events") {
+        response = mode === "edit" ? await withTimeout(client.from("events").update({ event_name: values.event_name, event_code: values.event_code, category: values.category, event_type: values.event_type, max_participants: values.max_participants ? Number(values.max_participants) : null, points_for_first: Number(values.points_for_first), points_for_second: Number(values.points_for_second), points_for_third: Number(values.points_for_third) }).eq("id", record?.id)) : await withTimeout(client.from("events").insert({ event_name: values.event_name, event_code: values.event_code, category: values.category, event_type: values.event_type, max_participants: values.max_participants ? Number(values.max_participants) : null, points_for_first: Number(values.points_for_first), points_for_second: Number(values.points_for_second), points_for_third: Number(values.points_for_third) }));
+      } else {
+        if ((values.participant_id && values.team_id) || (!values.participant_id && !values.team_id)) { setSaving(false); setMessage("Choose either a participant or a team."); return; }
+        response = mode === "edit" ? await withTimeout(client.from("results").update({ event_id: values.event_id, participant_id: values.participant_id || null, team_id: values.team_id || null, position: Number(values.position), points: Number(values.points), grade: values.grade || null, remarks: values.remarks || null, status: values.status }).eq("id", record?.id)) : await withTimeout(client.from("results").insert({ event_id: values.event_id, participant_id: values.participant_id || null, team_id: values.team_id || null, position: Number(values.position), points: Number(values.points), grade: values.grade || null, remarks: values.remarks || null, status: values.status }));
+      }
+    } catch (error) {
+      setSaving(false);
+      setMessage(error instanceof Error ? error.message : "Unable to save this record.");
+      return;
     }
     setSaving(false);
     if (response.error) { setMessage(response.error.message); return; }
