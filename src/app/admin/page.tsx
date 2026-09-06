@@ -61,7 +61,7 @@ export default function AdminDashboard() {
         <Link className="brand" href="/"><span className="brand-mark">✦</span><span>Auralis <em>26</em></span></Link>
         <p className="admin-label">Workspace</p>
         <nav className="admin-nav">{nav.map(([label, Icon, href], index) => <Link className={index === 0 ? "selected" : ""} href={href} key={label}><Icon size={17} />{label}</Link>)}</nav>
-        <Link className="admin-logout" href="/admin/login"><LogOut size={16} />Log out</Link>
+        <Link className="admin-logout" href="/login"><LogOut size={16} />Log out</Link>
       </aside>
       <section className="admin-main">
         <div className="admin-topbar"><div><p className="eyebrow">Sunday, 08 February 2026</p><h1>Good morning, Mira.</h1></div><Link className="clay-button button-dark" href="/">View public site <ShieldCheck size={16} /></Link></div>

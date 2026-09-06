@@ -36,11 +36,8 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
   async function getAdminCheck() {
     try {
       const client = createClient();
-      const { data: sessionData, error: sessionError } = await withTimeout(client.auth.getSession());
-      if (sessionError || !sessionData.session?.user) return "Your session has expired. Sign in again before saving.";
-      const { data: profile, error: profileError } = await withTimeout(client.from("admin_profiles").select("role").eq("user_id", sessionData.session.user.id).maybeSingle());
-      if (profileError) return "Could not verify your admin profile. Apply the admin RLS migration, then sign in again.";
-      if (!profile || !["admin", "editor"].includes(profile.role)) return "Your account is authenticated but is not assigned an admin role.";
+      const { data, error } = await withTimeout(client.auth.getUser());
+      if (error || !data.user) return "Your session has expired. Sign in again before saving.";
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : "Unable to verify admin access.";

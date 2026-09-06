@@ -72,7 +72,7 @@ export default function Home() {
           <a href="#search" onClick={() => setMenuOpen(false)}>Search</a>
         </nav>
         <div className="header-actions">
-          <Link className="admin-link" href="/admin/login">Admin portal <ArrowUpRight size={15} /></Link>
+          <Link className="admin-link" href="/login">Admin portal <ArrowUpRight size={15} /></Link>
           <button className="menu-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation">
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
