@@ -17,7 +17,7 @@ type Props = {
 
 const titles: Record<string, string> = { teams: "team", participants: "participant", events: "event", results: "result" };
 
-function withTimeout<T>(request: PromiseLike<T>, milliseconds = 12000) {
+function withTimeout<T>(request: PromiseLike<T>, milliseconds = 6000) {
   return Promise.race([
     Promise.resolve(request),
     new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error("The request timed out. Check your Supabase connection and sign-in status.")), milliseconds)),
@@ -39,7 +39,8 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
       const { data: sessionData, error: sessionError } = await withTimeout(client.auth.getSession());
       if (sessionError || !sessionData.session?.user) return "Your session has expired. Sign in again before saving.";
       const { data: profile, error: profileError } = await withTimeout(client.from("admin_profiles").select("role").eq("user_id", sessionData.session.user.id).maybeSingle());
-      if (profileError || !profile || !["admin", "editor"].includes(profile.role)) return "Your account is authenticated but is not assigned an admin role.";
+      if (profileError) return "Could not verify your admin profile. Apply the admin RLS migration, then sign in again.";
+      if (!profile || !["admin", "editor"].includes(profile.role)) return "Your account is authenticated but is not assigned an admin role.";
       return null;
     } catch (error) {
       return error instanceof Error ? error.message : "Unable to verify admin access.";
@@ -83,12 +84,13 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
-    setMessage("Saving...");
+    setMessage("Checking admin access...");
     const accessError = await getAdminCheck();
     if (accessError) { setSaving(false); setMessage(accessError); return; }
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const client = createClient();
     let response: { error: { message: string } | null };
+    setMessage("Saving to Supabase...");
     try {
       if (section === "teams") {
         response = mode === "edit" ? await withTimeout(client.from("teams").update({ name: values.name, short_name: values.short_name, description: values.description || null }).eq("id", record?.id)) : await withTimeout(client.from("teams").insert({ name: values.name, short_name: values.short_name, description: values.description || null }));
@@ -106,7 +108,13 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
       return;
     }
     setSaving(false);
-    if (response.error) { setMessage(response.error.message); return; }
+    if (response.error) {
+      const errorMessage = response.error.message.toLowerCase().includes("row-level security")
+        ? "Supabase rejected this save. Apply the admin RLS migration and add your Auth user to admin_profiles."
+        : response.error.message;
+      setMessage(errorMessage);
+      return;
+    }
     onSaved();
     onClose();
   }
