@@ -16,6 +16,19 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Supabase Admin Access
+
+Apply the migrations in `supabase/migrations` to the project, including `002_admin_rls_policies.sql`. Row-level security remains enabled: public users can read only active/public records, while authenticated users with an `admin_profiles` role of `admin` or `editor` can manage teams, participants, events, and results.
+
+After creating an Auth user, add its UUID to `admin_profiles` in the Supabase SQL editor:
+
+```sql
+insert into public.admin_profiles (user_id, role, name)
+values ('AUTH_USER_UUID', 'admin', 'Festival administrator');
+```
+
+Replace `AUTH_USER_UUID` with the user UUID from Supabase Authentication. The admin login and save modal both verify the session and this profile before attempting a database write.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

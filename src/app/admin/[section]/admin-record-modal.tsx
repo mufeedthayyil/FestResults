@@ -26,10 +26,21 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
   const [events, setEvents] = useState<Option[]>([]);
   const [participants, setParticipants] = useState<Option[]>([]);
 
+  async function getAdminCheck() {
+    const client = createClient();
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError || !sessionData.session?.user) return "Your session has expired. Sign in again before saving.";
+    const { data: profile, error: profileError } = await client.from("admin_profiles").select("role").eq("user_id", sessionData.session.user.id).maybeSingle();
+    if (profileError || !profile || !["admin", "editor"].includes(profile.role)) return "Your account is authenticated but is not assigned an admin role.";
+    return null;
+  }
+
   useEffect(() => {
     document.body.classList.add("modal-open");
     const loadOptions = async () => {
       const client = createClient();
+      const accessError = await getAdminCheck();
+      if (accessError) { setMessage(accessError); return; }
       const [teamsResponse, eventsResponse, participantsResponse] = await Promise.all([
         client.from("teams").select("id, name").eq("active", true).order("name"),
         client.from("events").select("id, event_name").eq("active", true).order("event_name"),
@@ -60,6 +71,8 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
     event.preventDefault();
     setSaving(true);
     setMessage("Saving...");
+    const accessError = await getAdminCheck();
+    if (accessError) { setSaving(false); setMessage(accessError); return; }
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const client = createClient();
     let response: { error: { message: string } | null };
