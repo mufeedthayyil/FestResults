@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -14,13 +14,25 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
-type ResultCard = { id: string; event: string; category: string; subject: string; place: string; points: number; tone: string };
-type LeaderboardRow = { rank: number; name: string; points: number; wins: number; tone: string };
+const teamResults = [
+  { event: "Photography", category: "Visual arts", team: "Blue House", place: "1st", points: 10, tone: "coral" },
+  { event: "Short Film", category: "Media", team: "Amber House", place: "2nd", points: 8, tone: "sky" },
+  { event: "Quiz", category: "Literary", team: "Blue House", place: "3rd", points: 6, tone: "lilac" },
+];
 
-const tones = ["coral", "sky", "lilac"];
-const leaderboardTones = ["leader-coral", "leader-sky", "leader-lilac", "leader-neutral"];
+const individualResults = [
+  { event: "Poetry", category: "Literary", participant: "Amina Fathima", register: "AF-2048", team: "Blue House", place: "1st", points: 10, tone: "coral" },
+  { event: "Painting", category: "Visual arts", participant: "Nihal K.", register: "AF-1932", team: "Amber House", place: "2nd", points: 8, tone: "sky" },
+  { event: "Speech", category: "Performance", participant: "Meera Joseph", register: "AF-2210", team: "Rose House", place: "3rd", points: 6, tone: "lilac" },
+];
+
+const leaderboard = [
+  { rank: 1, name: "Blue House", points: 184, wins: 12, tone: "leader-coral" },
+  { rank: 2, name: "Amber House", points: 172, wins: 9, tone: "leader-sky" },
+  { rank: 3, name: "Rose House", points: 160, wins: 8, tone: "leader-lilac" },
+  { rank: 4, name: "Green House", points: 141, wins: 6, tone: "leader-neutral" },
+];
 
 function PlaceBadge({ place }: { place: string }) {
   return <span className={`place-badge place-${place.toLowerCase().replace("st", "").replace("nd", "").replace("rd", "")}`}>{place}</span>;
@@ -30,33 +42,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"team" | "individual">("team");
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [stats, setStats] = useState({ participants: 0, teams: 0, events: 0, published: 0 });
-  const [teamResults, setTeamResults] = useState<ResultCard[]>([]);
-  const [individualResults, setIndividualResults] = useState<ResultCard[]>([]);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const results = activeTab === "team" ? teamResults : individualResults;
-
-  useEffect(() => {
-    const loadPublicData = async () => {
-      const client = createClient();
-      const [teams, participants, events, published, resultRows, leaderboardRows] = await Promise.all([
-        client.from("teams").select("id", { count: "exact", head: true }).eq("active", true),
-        client.from("participants").select("id", { count: "exact", head: true }).eq("active", true),
-        client.from("events").select("id", { count: "exact", head: true }).eq("active", true),
-        client.from("results").select("id", { count: "exact", head: true }).eq("status", "published"),
-        client.from("results").select("id, position, points, status, events(event_name, category, event_type), teams(name), participants(full_name, register_number)").eq("status", "published").order("created_at", { ascending: false }).limit(6),
-        client.from("overall_leaderboard").select("overall_rank, team_name, total_points, first_places").order("overall_rank").limit(6),
-      ]);
-      setStats({ participants: participants.count ?? 0, teams: teams.count ?? 0, events: events.count ?? 0, published: published.count ?? 0 });
-      if (resultRows.data) {
-        const mapped = resultRows.data.map((result, index) => ({ id: result.id, event: result.events?.[0]?.event_name ?? "Untitled event", category: result.events?.[0]?.category ?? "Festival", subject: result.events?.[0]?.event_type === "TEAM" ? result.teams?.[0]?.name ?? "Team result" : result.participants?.[0]?.full_name ?? "Participant result", place: `${result.position}${result.position === 1 ? "st" : result.position === 2 ? "nd" : result.position === 3 ? "rd" : "th"}`, points: result.points, tone: tones[index % tones.length] }));
-        setTeamResults(mapped.filter((result) => resultRows.data?.find((source) => source.id === result.id)?.events?.[0]?.event_type === "TEAM").slice(0, 3));
-        setIndividualResults(mapped.filter((result) => resultRows.data?.find((source) => source.id === result.id)?.events?.[0]?.event_type === "INDIVIDUAL").slice(0, 3));
-      }
-      if (leaderboardRows.data) setLeaderboard(leaderboardRows.data.map((team, index) => ({ rank: team.overall_rank, name: team.team_name, points: team.total_points, wins: team.first_places, tone: leaderboardTones[index % leaderboardTones.length] })));
-    };
-    void loadPublicData();
-  }, []);
 
   return (
     <div className="min-h-screen overflow-hidden">
@@ -72,7 +58,7 @@ export default function Home() {
           <a href="#search" onClick={() => setMenuOpen(false)}>Search</a>
         </nav>
         <div className="header-actions">
-          <Link className="admin-link" href="/login">Admin portal <ArrowUpRight size={15} /></Link>
+          <Link className="admin-link" href="/admin/login">Admin portal <ArrowUpRight size={15} /></Link>
           <button className="menu-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation">
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -102,10 +88,10 @@ export default function Home() {
         </section>
 
         <section className="stats-strip page-width reveal-up delay-two" aria-label="Festival statistics">
-          <div className="stat-item"><span className="stat-icon coral-icon"><Users size={18} /></span><strong>{stats.participants}</strong><span>participants</span></div>
-          <div className="stat-item"><span className="stat-icon sky-icon"><Trophy size={18} /></span><strong>{stats.teams}</strong><span>teams</span></div>
-          <div className="stat-item"><span className="stat-icon lilac-icon"><Sparkles size={18} /></span><strong>{stats.events}</strong><span>events</span></div>
-          <div className="stat-item"><span className="stat-icon mint-icon"><CalendarDays size={18} /></span><strong>{stats.published}</strong><span>results live</span></div>
+          <div className="stat-item"><span className="stat-icon coral-icon"><Users size={18} /></span><strong>438</strong><span>participants</span></div>
+          <div className="stat-item"><span className="stat-icon sky-icon"><Trophy size={18} /></span><strong>12</strong><span>teams</span></div>
+          <div className="stat-item"><span className="stat-icon lilac-icon"><Sparkles size={18} /></span><strong>56</strong><span>events</span></div>
+          <div className="stat-item"><span className="stat-icon mint-icon"><CalendarDays size={18} /></span><strong>42</strong><span>results live</span></div>
         </section>
 
         <section className="results-section page-width" id="results">
@@ -121,18 +107,18 @@ export default function Home() {
             <button className="filter-button">This week <ChevronDown size={15} /></button>
           </div>
           <div className="result-grid">
-            {results.filter((result) => `${result.event} ${result.subject}`.toLowerCase().includes(query.toLowerCase())).map((result) => (
+            {results.filter((result) => "event" in result && result.event.toLowerCase().includes(query.toLowerCase())).map((result) => (
               <article className={`result-card ${result.tone}`} key={result.event}>
-                <div className="result-card-top"><span>{result.category}</span><span className="result-live">Published</span></div>
+                <div className="result-card-top"><span>{result.category}</span><span className="result-live">Live</span></div>
                 <h3>{result.event}</h3>
                 <div className="result-card-bottom">
-                  <div><small>{activeTab === "team" ? "Team" : "Participant"}</small><strong>{result.subject}</strong></div>
+                  <div><small>{activeTab === "team" ? "Team" : "Participant"}</small><strong>{activeTab === "team" ? (result as typeof teamResults[number]).team : (result as typeof individualResults[number]).participant}</strong></div>
                   <div className="result-place"><PlaceBadge place={result.place} /><strong>{result.points}<small> pts</small></strong></div>
                 </div>
               </article>
             ))}
           </div>
-          <div className="results-footer"><span>Showing the latest published results</span><a href="#results">View all results <ArrowUpRight size={16} /></a></div>
+          <div className="results-footer"><span>Showing the three most recent results</span><a href="#results">View all results <ArrowUpRight size={16} /></a></div>
         </section>
 
         <section className="search-band" id="search">

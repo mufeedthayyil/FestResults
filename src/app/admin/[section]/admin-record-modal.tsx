@@ -80,11 +80,12 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     setSaving(true);
     setMessage("Checking admin access...");
     const accessError = await getAdminCheck();
     if (accessError) { setSaving(false); setMessage(accessError); return; }
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const values = Object.fromEntries(new FormData(form).entries());
     const client = createClient();
     let response: { error: { message: string } | null };
     setMessage("Saving to Supabase...");
