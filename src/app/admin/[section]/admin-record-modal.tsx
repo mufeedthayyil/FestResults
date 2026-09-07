@@ -107,7 +107,7 @@ export default function AdminRecordModal({ section, mode, record, onClose, onSav
     setSaving(false);
     if (response.error) {
       const errorMessage = response.error.message.toLowerCase().includes("row-level security")
-        ? "Supabase rejected this save. Apply the admin RLS migration and add your Auth user to admin_profiles."
+        ? "Supabase rejected this save. Apply the authenticated-user RLS migration and check that your session is active."
         : response.error.message;
       setMessage(errorMessage);
       return;

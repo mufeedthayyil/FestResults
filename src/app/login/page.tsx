@@ -19,13 +19,7 @@ export default function AdminLogin() {
     if (error) { setMessage(error.message); return; }
     const { data: sessionData } = await client.auth.getSession();
     if (!sessionData.session?.user) { setMessage("Sign-in did not create a valid session."); return; }
-    const { data: profile, error: profileError } = await client.from("admin_profiles").select("role").eq("user_id", sessionData.session.user.id).maybeSingle();
-    if (profileError || !profile || !["admin", "editor"].includes(profile.role)) {
-      await client.auth.signOut();
-      setMessage("This account is not assigned an admin role.");
-      return;
-    }
     router.push("/admin");
   }
-  return <main className="login-shell"><div className="login-art"><Link className="brand" href="/"><span className="brand-mark"><Sparkles size={17} /></span><span>Auralis <em>26</em></span></Link><div><p className="eyebrow">Festival operations</p><h1>Bring every<br /><i>moment</i> to light.</h1></div><span className="login-art-note">Auralis 26 · Admin workspace</span></div><section className="login-form"><p className="eyebrow">Welcome back</p><h2>Sign in to<br /><i>your workspace.</i></h2><form onSubmit={handleSubmit}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@college.edu" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" required /></label><button className="clay-button button-dark" type="submit">Sign in <ArrowRight size={17} /></button></form><p className="login-help">{message || "Admin access is restricted to festival coordinators."}</p></section></main>;
+  return <main className="login-shell"><div className="login-art"><Link className="brand" href="/"><span className="brand-mark"><Sparkles size={17} /></span><span>Auralis <em>26</em></span></Link><div><p className="eyebrow">Festival operations</p><h1>Bring every<br /><i>moment</i> to light.</h1></div><span className="login-art-note">Auralis 26 · Festival workspace</span></div><section className="login-form"><p className="eyebrow">Welcome back</p><h2>Sign in to<br /><i>your workspace.</i></h2><form onSubmit={handleSubmit}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@college.edu" required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" required /></label><button className="clay-button button-dark" type="submit">Sign in <ArrowRight size={17} /></button></form><p className="login-help">{message || "Sign in to create and manage festival records."}</p></section></main>;
 }
